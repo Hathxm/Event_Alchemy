@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from django.core.mail import send_mail
 from django.contrib.auth.hashers import make_password
 from django.utils.crypto import get_random_string
-from .models import Customusers
+from .models import Customusers,Booking
 from django.utils import timezone
 from datetime import datetime
 from django.contrib.sessions.models import Session
@@ -24,6 +24,7 @@ from vendors.serializers import VendorserviceSerializer
 from superadmin.models import Events
 from managers.models import Managers,AllUsers
 from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.decorators import api_view
 
 
 class landingpage(APIView):
@@ -331,6 +332,47 @@ class UserDetails(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'User is not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        
+@api_view(['POST'])
+def check_availability(request):
+    venue_id = request.data.get('venue_id')
+    date_str = request.data.get('date')
+    start_time_str = request.data.get('start_time')
+    end_time_str = request.data.get('end_time')
+
+    if not all([venue_id, date_str, start_time_str, end_time_str]):
+        return Response({'error': 'All fields are required'}, status=400)
+
+    date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    start_time = datetime.strptime(start_time_str, '%H:%M').time()
+    end_time = datetime.strptime(end_time_str, '%H:%M').time()
+  
+
+    bookings = Booking.objects.filter(venue_id=venue_id, date=date)
+ 
+
+    not_available_slots = []
+
+    # Check if there are any overlapping bookings
+    for booking in bookings:
+        if not (end_time <= booking.start_time or start_time >= booking.end_time):
+            # Collect all the times to find available slots
+            not_available_slots.append({
+                'start': booking.start_time,
+                'end': booking.end_time,
+            })
+
+    if  not_available_slots:
+        not_available_slots = sorted( not_available_slots, key=lambda x: x['start'])
+        not_available_slots_formatted = [f"{slot['start']} - {slot['end']}" for slot in  not_available_slots]
+        return Response({
+            'available': False,
+            'not_available_slots': not_available_slots_formatted
+        }, status=200)
+
+    # No overlaps found, the slot is available
+    return Response({'available': True}, status=200)
         
 
 

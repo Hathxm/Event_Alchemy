@@ -16,6 +16,7 @@ urlpatterns = [
     path('venue_services',views.Venueservices.as_view(), name='venueservices'),
     path('selected_services',views.Selected_services.as_view(), name='selected_services'),
     path('userdetails/',views.UserDetails.as_view(), name='user-details'),
+    path('check_availability', views.check_availability, name='check_availability'),
 
 
 
