@@ -17,6 +17,11 @@ urlpatterns = [
     path('selected_services',views.Selected_services.as_view(), name='selected_services'),
     path('userdetails/',views.UserDetails.as_view(), name='user-details'),
     path('check_availability', views.check_availability, name='check_availability'),
+    path('create_order', views.Confirm_Booking.as_view(), name='confirmbooking'),
+    path('fetch_bookings', views.Fetch_bookings.as_view(), name='fetchbookings'),
+    path('chats/prev_msgs',views.Prev_msgs.as_view(), name='previousmessages')
+
+
 
 
 

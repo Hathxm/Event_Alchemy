@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 import os
 from datetime import timedelta
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,6 +34,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -43,6 +45,10 @@ INSTALLED_APPS = [
     'managers',
     'superadmin',
     'vendors',
+    'chat',
+    'rest_framework',
+    'django_celery_beat',
+    'django_celery_results',
 ]
 
 MIDDLEWARE = [
@@ -77,6 +83,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
+ASGI_APPLICATION = 'backend.asgi.application'
 
 
 # Database
@@ -166,7 +173,46 @@ EMAIL_HOST_USER="mohammedhathimeasa@gmail.com"
 EMAIL_HOST_PASSWORD="xmgw rihl epfv nkug"
 
 
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379'
+# CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_RESULT_BACKEND  = 'django-db'
+
+
+
+
+# Other Celery settings...
+CELERY_TIMEZONE = 'Asia/Kolkata'
+
+
+# Celery Beat Schedule
+CELERY_BEAT_SCHEDULE = {
+    'notify_vendors_midnight': {
+        'task': 'vendors.tasks.notify_vendors', 
+        'schedule': crontab(hour=12, minute=00),  # Runs every day at midnight
+    },
+    'notify_vendors_noon': {
+        'task': 'vendors.tasks.notify_vendors',
+        'schedule': crontab(hour=12, minute=0),  # Runs every day at noon
+    },
+}
+
+
+
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL='managers.AllUsers'
+
 CORS_ALLOW_ALL_ORIGINS = True
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],  # Update the host and port as needed
+        },
+    },
+}
 

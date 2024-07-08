@@ -9,6 +9,8 @@ urlpatterns = [
     path('details',views.Vendor_Details.as_view(),name="vendor_details" ),
     path('services',views.Services.as_view(),name="services" ),
     path('addservice',views.AddService.as_view(),name="addservices" ),
+    path('chats/prev_msgs',views.Prev_msgs.as_view(), name='previousmessages')
+
 
 
 

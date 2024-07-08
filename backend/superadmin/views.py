@@ -91,13 +91,21 @@ class AddManager(APIView):
         event_type_name = request.data.get('eventType')
         hashed_password = make_password(password)
 
+        errors = {}
+
+        if AllUsers.objects.filter(username=username).exists():
+            errors['username'] = 'Username already exists.'
+
+        if Managers.objects.filter(email=email).exists():
+            errors['email'] = 'Email already exists.'
+
         try:
             manager_type = Events.objects.get(name=event_type_name)
         except ObjectDoesNotExist:
-            return Response(
-                {'error': 'Event type does not exist.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            errors['eventType'] = 'Event type does not exist.'
+
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
         Managers.objects.create(
             username=username,
@@ -107,7 +115,8 @@ class AddManager(APIView):
             manager_type=manager_type,
             is_Manager=True
         )
-        send_manager_details(email,username,password)
+
+        send_manager_details(email, username, password)
         return Response(status=status.HTTP_200_OK)
 
 def send_manager_details(email,username,password):
@@ -172,41 +181,6 @@ class AdminDetails(APIView):
         else:
             return Response({'error': 'User is not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
         
-class AddManager(APIView):
-    def post(self, request):
-        username = request.data.get('username')
-        name = request.data.get('name')
-        email = request.data.get('email')
-        password = get_random_string(length=6, allowed_chars='1234567890')
-        event_type_name = request.data.get('eventType')
-        hashed_password = make_password(password)
-
-        try:
-            manager_type = Events.objects.get(name=event_type_name)
-        except ObjectDoesNotExist:
-            return Response(
-                {'error': 'Event type does not exist.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        Managers.objects.create(
-            username=username,
-            first_name=name,
-            email=email,
-            password=hashed_password,
-            manager_type=manager_type,
-            is_Manager=True
-        )
-        send_manager_details(email,username,password)
-        return Response(status=status.HTTP_200_OK)
-
-def send_manager_details(email,username,password):
-    # Construct email subject and message
-    subject = 'You Manager Account Details At EventAlchemy.com'
-    message = f' Use Your Username And Password to Log In \nUsername:{username}\npassword:{password}'
-    
-    # Send email
-    send_mail(subject, message, "eventalchemy@gmail.com", [email], fail_silently=False)
 
 
 

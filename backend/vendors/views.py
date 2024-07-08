@@ -14,6 +14,9 @@ from .serializers import VendorserviceSerializer,VendorSerializer
 from managers.models import AllUsers 
 from superadmin.serializers import LocationSerializer,ServiceSerializer
 from superadmin.models import location,services
+from chat.models import ChatMessage,ChatRoom
+from user.serializers import ChatMessageSerializer,ChatRoomSerializer
+from .tasks import notify_vendors
 
 
 
@@ -230,4 +233,31 @@ class AddService(APIView):
             return Response({'success': 'Service added successfully', 'updated_data': serializer.data}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            
             return Response({'error': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class Prev_msgs(APIView):
+    
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        print(user)
+        chat_rooms = ChatRoom.objects.filter(user=user)
+        print(chat_rooms)
+        serializer = ChatRoomSerializer(chat_rooms, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        user = request.user 
+        room_id = request.data.get('room_id')
+        chat_room = ChatRoom.objects.get(id=room_id, user=user)
+        messages = ChatMessage.objects.filter(room=chat_room)
+        serializer = ChatMessageSerializer(messages, many=True)
+        return Response(serializer.data)
+
+
+def test(request):
+    notify_vendors.delay()
+    return Response("heyyy",status=200)

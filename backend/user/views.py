@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from .serializers import VenueSerializer
+from .serializers import VenueSerializer,BookingSerializer
 from managers.models import venues
 from vendors.models import vendorservices
 from rest_framework.permissions import IsAuthenticated
@@ -19,12 +19,19 @@ from django.db import IntegrityError,DatabaseError
 from rest_framework.exceptions import AuthenticationFailed,ParseError
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import CustomuserSerializer
+from .serializers import CustomuserSerializer,ChatMessageSerializer,ChatRoomSerializer
 from vendors.serializers import VendorserviceSerializer
 from superadmin.models import Events
 from managers.models import Managers,AllUsers
+from vendors.models import vendorservices
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.decorators import api_view
+import random
+from chat.models import ChatRoom,ChatMessage,Notification
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+
 
 
 class landingpage(APIView):
@@ -243,7 +250,8 @@ class Venues(APIView):
         venuess = venues.objects.filter(event_type=event)
       
         serializer=VenueSerializer(venuess,many=True)
-        return Response(serializer.data)
+
+        return Response({'data':serializer.data,'event_name':event.name})
         
 class Venuedetail(APIView):
     def get(self,request):
@@ -373,6 +381,106 @@ def check_availability(request):
 
     # No overlaps found, the slot is available
     return Response({'available': True}, status=200)
+
+
+class Confirm_Booking(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        print(request.data)
+        try:
+            # Retrieve user from request context
+            user = request.user
+            
+            # Extracting data from request
+            venue_id = request.data.get('venueId')
+            services_ids = request.data.get('services')
+            booking_details = request.data.get('bookingDetails')
+
+            # Validate and retrieve user and venue
+            user = Customusers.objects.get(username=user.username)
+            venue = venues.objects.get(id=venue_id)
+
+            # Retrieve managers based on the event type of the venue
+            managers = Managers.objects.filter(manager_type=venue.event_type)
+            print(venue.event_type)
+            print(managers)
+
+            # Select a random manager from the list of available managers
+            if not managers.exists():
+                return Response({"error": "No managers available for this event type."}, status=404)
+            manager = random.choice(managers)
+            print(f"Selected Manager: {manager}")
+
+            # Create the booking instance
+            booking = Booking.objects.create(
+                customer=user,
+                venue=venue,
+                date=booking_details.get('date'),
+                start_time=booking_details.get('startTime'),
+                end_time=booking_details.get('endTime'),
+                Total=25000,  # Replace this with actual total calculation if needed
+                manager=manager,
+                event_type = venue.event_type,
+            )
+
+            # Add selected services to the booking
+            for service_id in list(set(services_ids)):
+                try:
+                    service = vendorservices.objects.get(id=service_id)
+                    booking.services.add(service)
+                except vendorservices.DoesNotExist:
+                    return Response({"error": f"Service with id {service_id} not found"},
+                                    status=404)
+
+            notification_message = f"A new booking has been made for the venue {venue.venue_name}."
+            notification = Notification.objects.create(
+                user=manager,
+                message=notification_message,
+                booking=booking
+            )
+
+            # Send notification via WebSocket
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'manager_{manager.id}',
+                {
+                    'type': 'send_notification',
+                    'message': notification_message
+                }
+            )
+
+            return Response({"success": "Booking created successfully"}, status=201)
+        except Exception as e:
+            print(str(e))
+            return Response({"error": str(e)}, status=400)
+        
+
+class Fetch_bookings(APIView):
+    def post(self,request):
+        user = request.user
+        bookings = Booking.objects.filter(customer=user)
+        serializer = BookingSerializer(bookings,many=True)
+        return Response(serializer.data,status=200)
+        
+class Prev_msgs(APIView):
+    
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        chat_rooms = ChatRoom.objects.filter(user=user)
+        print(chat_rooms)
+        serializer = ChatRoomSerializer(chat_rooms, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        user = request.user
+        room_id = request.data.get('room_id')
+        chat_room = ChatRoom.objects.get(id=room_id, user=user)
+        messages = ChatMessage.objects.filter(room=chat_room)
+        serializer = ChatMessageSerializer(messages, many=True)
+        return Response(serializer.data)
         
 
 

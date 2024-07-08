@@ -3,6 +3,7 @@ from django.db import models
 # Create your models here.
 class services(models.Model):
     service_name=models.CharField(max_length=15)
+    image=models.ImageField(upload_to='services',null=True)
 
     def __str__(self) -> str:
         return self.service_name
